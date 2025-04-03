@@ -1,0 +1,65 @@
+services:
+  app:
+    container_name: app
+    hostname: app
+    build: 
+      context: ../
+      dockerfile: docker/app/dockerfile
+    ports:
+      - 8000:8000
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./app/.env
+    networks:
+      frontend:
+          ipv4_address: 172.19.0.10
+      backend:
+          ipv4_address: 172.18.0.10
+    volumes:
+      - type: bind
+        source: ../app
+        target: /src/app
+  db:
+    container_name: dev_db
+    build: 
+      context: ../
+      dockerfile: docker/db/dockerfile
+    hostname: dev
+    restart: always
+    ports:
+      - 3306:3306
+    env_file:
+      - db/.env
+    volumes:
+      - type: bind
+        source: ./db/logs
+        target: /var/log/mysql
+      - type: bind
+        source: ./db/conf.d
+        target: /etc/mysql/conf.d
+      - type: bind
+        source: ./db/initdb.d
+        target: /docker-entrypoint-initdb.d
+    networks:
+      backend:
+        ipv4_address: 172.18.0.100
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p${MYSQL_ROOT_PASSWORD}"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+
+networks:
+  frontend:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.19.0.0/24
+  backend:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.18.0.0/24
